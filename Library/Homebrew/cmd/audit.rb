@@ -147,6 +147,7 @@ def audit_formula_options f, text
 
   if documented_options.length > 0
     documented_options.each do |o|
+      next if o == '--universal'
       problems << " * Option #{o} is unused" unless options.include? o
     end
   end
@@ -233,12 +234,25 @@ def audit_formula_instance f
   return problems
 end
 
+def audit_formula_caveats f
+  problems = []
+
+  if f.caveats.to_s =~ /^\s*\$\s+/
+    problems << " * caveats should not use '$' prompts in multiline commands."
+  end if strict?
+
+  return problems
+end
+
 module Homebrew extend self
   def audit
+    errors = false
+
     ff.each do |f|
       problems = []
       problems += audit_formula_instance f
       problems += audit_formula_urls f
+      problems += audit_formula_caveats f
 
       perms = File.stat(f.path).mode
       if perms.to_s(8) != "100644"
@@ -262,10 +276,13 @@ module Homebrew extend self
       problems += audit_formula_options(f, text_without_patch)
 
       unless problems.empty?
+        errors = true
         puts "#{f.name}:"
         puts problems * "\n"
         puts
       end
     end
+
+    exit 1 if errors
   end
 end

@@ -143,6 +143,14 @@ class NoUnzipCurlDownloadStrategy < CurlDownloadStrategy
   end
 end
 
+# Normal strategy tries to untar as well
+class GzipOnlyDownloadStrategy < CurlDownloadStrategy
+  def stage
+    FileUtils.mv @tarball_path, File.basename(@url)
+    safe_system '/usr/bin/gunzip', '-f', File.basename(@url)
+  end
+end
+
 # This Download Strategy is provided for use with sites that
 # only provide HTTPS and also have a broken cert.
 # Try not to need this, as we probably won't accept the formula.
@@ -488,7 +496,7 @@ def detect_download_strategy url
   when %r[^svn\+http://] then SubversionDownloadStrategy
   when %r[^fossil://] then FossilDownloadStrategy
     # Some well-known source hosts
-  when %r[^http://github\.com/.+\.git$] then GitDownloadStrategy
+  when %r[^https?://github\.com/.+\.git$] then GitDownloadStrategy
   when %r[^https?://(.+?\.)?googlecode\.com/hg] then MercurialDownloadStrategy
   when %r[^https?://(.+?\.)?googlecode\.com/svn] then SubversionDownloadStrategy
   when %r[^https?://(.+?\.)?sourceforge\.net/svnroot/] then SubversionDownloadStrategy

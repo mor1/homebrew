@@ -8,8 +8,8 @@ end
 
 class Sbcl < Formula
   homepage 'http://www.sbcl.org/'
-  url 'http://downloads.sourceforge.net/project/sbcl/sbcl/1.0.47/sbcl-1.0.47-source.tar.bz2'
-  md5 '2e90fca5ffec9ce19ed232b24f09cd0a'
+  url 'http://downloads.sourceforge.net/project/sbcl/sbcl/1.0.48/sbcl-1.0.48-source.tar.bz2'
+  md5 'f60f27bcc04d1c9241562aafe4ee5d4a'
   head 'git://sbcl.boinkor.net/sbcl.git'
 
   fails_with_llvm "Compilation fails with LLVM."
@@ -51,6 +51,12 @@ class Sbcl < Formula
 
   def install
     write_features
+
+    # Remove non-ASCII values from environment as they cause build failures
+    # More information: http://bugs.gentoo.org/show_bug.cgi?id=174702
+    ENV.delete_if do |key, value|
+      value.bytes.any? do |c| 128 <= c end
+    end
 
     build_directory = Dir.pwd
     SbclBootstrapBinaries.new.brew {
