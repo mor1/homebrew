@@ -1,12 +1,6 @@
 require 'formula'
 require 'utils'
 
-# Use "brew audit --strict" to enable even stricter checks.
-
-def strict?
-  ARGV.flag? "--strict"
-end
-
 def ff
   return Formula.all if ARGV.named.empty?
   return ARGV.formulae
@@ -135,6 +129,15 @@ def audit_formula_text name, text
     problems << " * MacPorts patches should specify a revision instead of trunk"
   end
 
+  # Avoid hard-coding compilers
+  if text =~ %r[(system|ENV\[.+\]\s?=)\s?['"](/usr/bin/)?(gcc|llvm-gcc|clang)['" ]]
+    problems << " * Use \"\#{ENV.cc}\" instead of hard-coding \"#{$3}\""
+  end
+
+  if text =~ %r[(system|ENV\[.+\]\s?=)\s?['"](/usr/bin/)?((g|llvm-g|clang)\+\+)['" ]]
+    problems << " * Use \"\#{ENV.cxx}\" instead of hard-coding \"#{$3}\""
+  end
+
   return problems
 end
 
@@ -167,6 +170,7 @@ def audit_formula_options f, text
   if documented_options.length > 0
     documented_options.each do |o|
       next if o == '--universal' and text =~ /ARGV\.build_universal\?/
+      next if o == '--32-bit' and text =~ /ARGV\.build_32_bit\?/
       problems << " * Option #{o} is unused" unless options.include? o
     end
   end
@@ -266,8 +270,8 @@ def audit_formula_instance f
     end
 
     case d
-    when "git", "python", "ruby", "emacs", "mysql", "postgresql"
-      problems << " * Don't use #{d} as a dependency; we allow non-Homebrew #{d} installs."
+    when "git", "python", "ruby", "emacs", "mysql", "postgresql", "mercurial"
+      problems << " * Don't use #{d} as a dependency; we allow non-Homebrew\n   #{d} installs."
     end
   end
 
@@ -285,6 +289,11 @@ module Homebrew extend self
 
     ff.each do |f|
       problems = []
+
+      if f.unstable and f.stable.nil?
+        problems += [' * head-only formula']
+      end
+
       problems += audit_formula_instance f
       problems += audit_formula_urls f
 
@@ -300,6 +309,8 @@ module Homebrew extend self
       if (text =~ /\bDATA\b/) and not (text =~ /^\s*__END__\s*$/)
         problems << " * 'DATA' was found, but no '__END__'"
       end
+
+      problems << " * File should end with a newline" if text =~ /.+\z/
 
       problems += [' * invalid or missing version'] if f.version.to_s.empty?
 
